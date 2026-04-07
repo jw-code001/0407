@@ -1,0 +1,39 @@
+// --- 1차 테이블 구성 ---
+
+// 회원 테이블: 설문 응답자 정보 (회원가입 없이 이메일 기반 수집)
+Table members {
+  email varchar [primary key, note: '응답자 식별 이메일']
+  agent varchar [note: '유입 경로 또는 기기 정보']
+  survey_date datetime [default: `now()`, note: '설문 참여 시점']
+}
+
+// 질문 리스트 테이블
+Table questions {
+  question_id int [primary key, note: '문항 번호']
+  title varchar [note: '질문 내용']
+  question_type varchar [note: '질문 형태 (r, t, c)']
+  options text [note: '선택지 데이터']
+  is_visible boolean [default: true, note: '사용 여부']
+}
+
+// --- 2차 테이블 구성 및 최적화 ---
+
+// 응답 테이블: 대량 데이터 스캔 성능을 고려한 설계
+Table responses {
+  response_id int [primary key, increment, note: '고유 ID']
+  email varchar [ref: > members.email, note: '작성자 외래키']
+  question_id int [ref: > questions.question_id, note: '질문 외래키']
+  answer_text text [note: '응답 데이터']
+  created_at datetime [default: `now()`]
+
+  indexes {
+    // 1. 특정 사용자가 작성한 답변을 빠르게 조회할 때
+    (email, question_id) [name: 'idx_member_question']
+    
+    // 2. 특정 질문에 대한 통계(응답 분포)를 낼 때
+    question_id [name: 'idx_question_stats']
+    
+    // 3. 최신순/날짜별 대량 스캔이 잦을 때 (네이버 광고 데이터 방식)
+    created_at [name: 'idx_created_at']
+  }
+}

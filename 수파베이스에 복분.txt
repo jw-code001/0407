@@ -1,0 +1,29 @@
+-- 1. 회원 테이블 생성
+CREATE TABLE members (
+  email text PRIMARY KEY,
+  agent text,
+  survey_date timestamptz DEFAULT now()
+);
+
+-- 2. 질문 리스트 테이블 생성
+CREATE TABLE questions (
+  question_id int PRIMARY KEY,
+  title text NOT NULL,
+  question_type text CHECK (question_type IN ('r', 't', 'c')),
+  options text,
+  is_visible boolean DEFAULT true
+);
+
+-- 3. 응답 테이블 생성 (성능 최적화 포함)
+CREATE TABLE responses (
+  response_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email text REFERENCES members(email),
+  question_id int REFERENCES questions(question_id),
+  answer_text text,
+  created_at timestamptz DEFAULT now()
+);
+
+-- 인덱스 설정 (스캔 속도 최적화)
+CREATE INDEX idx_member_question ON responses (email, question_id);
+CREATE INDEX idx_question_stats ON responses (question_id);
+CREATE INDEX idx_created_at ON responses (created_at);

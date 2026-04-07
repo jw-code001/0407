@@ -1,0 +1,94 @@
+피그마 수업
+https://supabase.com/ ---- 수파베이스
+
+https://dbdiagram.io/home --- db담당과 개발자가 소통하는 곳
+-- ai 쓰면 돈나감. 제미나이에서 만든 erd코드로 진행
+-- export에 sql로 내보내기 있음
+
+------------------------------------------------------------------------
+제미나이 + ERD툴 조합으로 진행한다.
+https://dbdiagram.io/ 에 복붙하게 편하게 만들어줘
+
+1차테이블 : 
+회원테이블 : 추후 보안할거라 분리함
+--> 설문응답 1회이므로 회원가입폼을 통한 수집이 아니야
+컬럼은 3개야.
+기본필드 : 이메일(pk)
+설계필드 : 에이전트, 설문날자
+
+1차테이블 : 
+질문리스트 테이블 : 
+-> 컬럼은 문항번호(pk), 제목, 질문타입(r,t,c), 질문선택문항, 노출여부
+
+2차테이블 : 
+응답테이블 : 도와줘
+-------------------------------------------------------------------------
+
+---> 제미나이 응답 --> dbdiagram.io에 복붙
+코드스니펫
+// 1차 테이블: 회원 (설문 응답자 정보)
+Table members {
+  email varchar [primary key, note: '이메일']
+  agent varchar [note: '접속 기기/환경']
+  survey_date datetime [default: `now()`, note: '설문 응답 날짜']
+}
+
+// 1차 테이블: 질문 리스트
+Table questions {
+  question_id int [primary key, note: '문항번호']
+  title varchar [note: '질문 제목']
+  question_type varchar [note: '질문타입 (r:라디오, t:텍스트, c:체크박스)']
+  options text [note: '질문 선택 문항 (JSON 또는 구분자로 저장)']
+  is_visible boolean [default: true, note: '노출 여부']
+}
+
+// 2차 테이블: 응답 (회원과 질문을 연결)
+Table responses {
+  response_id int [primary key, increment, note: '응답 식별자']
+  email varchar [ref: > members.email, note: '응답자 이메일 (FK)']
+  question_id int [ref: > questions.question_id, note: '질문 번호 (FK)']
+  answer_text text [note: '실제 응답 내용']
+  created_at datetime [default: `now()`]
+}
+------------------------------------------------------------------------
+
+----> 테이블 = 표가 3개 ( 회원테이블의 분리 for 보안 )
+----> 숨김처리 보안도 돈임 --> 회원 테이블만 막아둬도 됨
+
+email, 전번 뭐든 하나는 있어야 작성을 허락
+
+2차테이블에 양이 많아질때 스캔을 빨리 할 수 있는 방법 (naver.com에 광고등)
+---> 용량초과로 폭발할 수 있음
+
+* 복합 인덱스(Composite Index): 
+  특정 이메일이 작성한 특정 질문의 답변을 찾을 때 
+  (email, question_id)를 묶어서 인덱스를 생성합니다.
+
+* 주의사항: 
+  - 인덱스가 많아지면 INSERT 속도가 느려지므로, 
+    조회(SELECT)에 꼭 필요한 컬럼 위주로 구성하세요.
+  - pk는 정수로 할것
+  
+  - index idx_question (question_id)
+  - index idx_email_question (email, question_id)
+
+
+이 구조에서 쿼리 90%는 아래임
+// 1. 특정 사용자가 작성한 답변을 빠르게 조회할 때
+    (email, question_id) [name: 'idx_member_question']
+    
+// 2. 특정 질문에 대한 통계(응답 분포)를 낼 때
+    question_id [name: 'idx_question_stats']
+    
+// 3. 최신순/날짜별 대량 스캔이 잦을 때 (네이버 광고 데이터 방식)
+    created_at [name: 'idx_created_at']
+
+
+수파베이스에 sql에디터에 넣었을때 에러남 
+--> user? member?가 기존과 충돌나는듯
+
+
+
+
+
+테이블의 정규화, 설계필드에 대한 개념 -----> db설계 가능
